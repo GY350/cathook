@@ -1,6 +1,7 @@
 #pragma once
 #include <MinHook.h>
 
+#include <expected>
 #include <type_traits>
 
 namespace mh {
@@ -43,8 +44,16 @@ class Hook {
   Hook(const Hook&) = delete;
   Hook& operator=(const Hook&) = delete;
 
-  [[nodiscard]] MH_STATUS enable() { return MH_EnableHook(target_); }
-  [[nodiscard]] MH_STATUS disable() { return MH_DisableHook(target_); }
+  [[nodiscard]] std::expected<void, MH_STATUS> enable() {
+    if (auto s = MH_EnableHook(target_); s != MH_OK) return std::unexpected(s);
+    return {};
+  }
+
+  [[nodiscard]] std::expected<void, MH_STATUS> disable() {
+    if (auto s = MH_DisableHook(target_); s != MH_OK) return std::unexpected(s);
+    return {};
+  }
+
   [[nodiscard]] MH_STATUS status() const { return status_; }
 
   fn_ptr original() const { return original_; }
