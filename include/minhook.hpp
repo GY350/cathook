@@ -16,6 +16,9 @@ class Hook {
         status_(MH_CreateHook(target, reinterpret_cast<void*>(detour),
                               reinterpret_cast<void**>(&original_))) {}
 
+  Hook(fn_ptr target, fn_ptr detour)
+      : Hook(reinterpret_cast<void*>(target), detour) {}
+
   ~Hook() {
     if (status_ == MH_OK) MH_RemoveHook(target_);
   }
