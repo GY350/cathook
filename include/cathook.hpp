@@ -5,7 +5,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace mh {
+namespace ch {
 
 namespace detail {
 template <typename Fn>
@@ -25,6 +25,7 @@ class Context {
   Context& operator=(const Context&) = delete;
 
   [[nodiscard]] MH_STATUS status() const { return status_; }
+  explicit operator bool() const { return status_ == MH_OK; }
 
  private:
   MH_STATUS status_ = MH_UNKNOWN;
@@ -47,6 +48,26 @@ class Hook {
   Hook(fn_ptr target, fn_ptr detour)
       : Hook(reinterpret_cast<void*>(target), detour) {}
 
+  Hook(Hook&& other) noexcept
+      : target_(other.target_),
+        original_(other.original_),
+        status_(other.status_) {
+    other.target_ = nullptr;
+    other.status_ = MH_UNKNOWN;
+  }
+
+  Hook& operator=(Hook&& other) noexcept {
+    if (this != &other) {
+      if (status_ == MH_OK) MH_RemoveHook(target_);
+      target_ = other.target_;
+      original_ = other.original_;
+      status_ = other.status_;
+      other.target_ = nullptr;
+      other.status_ = MH_UNKNOWN;
+    }
+    return *this;
+  }
+
   ~Hook() {
     if (status_ == MH_OK) MH_RemoveHook(target_);
   }
@@ -65,6 +86,7 @@ class Hook {
   }
 
   [[nodiscard]] MH_STATUS status() const { return status_; }
+  explicit operator bool() const { return status_ == MH_OK; }
 
   fn_ptr original() const { return reinterpret_cast<fn_ptr>(original_); }
 
@@ -126,4 +148,4 @@ Hook<std::remove_pointer_t<FnPtr>> hook_api(const wchar_t* module,
     return {reinterpret_cast<void*>(addr), detour};
 }
 
-}  // namespace mh
+}  // namespace ch
