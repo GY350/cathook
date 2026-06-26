@@ -76,11 +76,13 @@ class Hook {
   Hook& operator=(const Hook&) = delete;
 
   [[nodiscard]] std::expected<void, MH_STATUS> enable() {
+    if (status_ != MH_OK) return std::unexpected(status_);
     if (auto s = MH_EnableHook(target_); s != MH_OK) return std::unexpected(s);
     return {};
   }
 
   [[nodiscard]] std::expected<void, MH_STATUS> disable() {
+    if (status_ != MH_OK) return std::unexpected(status_);
     if (auto s = MH_DisableHook(target_); s != MH_OK) return std::unexpected(s);
     return {};
   }
@@ -146,6 +148,14 @@ Hook<std::remove_pointer_t<FnPtr>> hook_api(const wchar_t* module,
     return {MH_ERROR_FUNCTION_NOT_FOUND};
   else
     return {reinterpret_cast<void*>(addr), detour};
+}
+
+inline const char* status_string(MH_STATUS s) {
+  return MH_StatusToString(s);
+}
+
+inline const char* status_string(const std::expected<void, MH_STATUS>& r) {
+  return MH_StatusToString(r ? MH_OK : r.error());
 }
 
 }  // namespace ch
