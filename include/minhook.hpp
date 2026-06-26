@@ -5,6 +5,23 @@
 
 namespace mh {
 
+class Context {
+ public:
+  Context() : status_(MH_Initialize()) {}
+
+  ~Context() {
+    if (status_ == MH_OK) MH_Uninitialize();
+  }
+
+  Context(const Context&) = delete;
+  Context& operator=(const Context&) = delete;
+
+  [[nodiscard]] MH_STATUS status() const { return status_; }
+
+ private:
+  MH_STATUS status_ = MH_UNKNOWN;
+};
+
 template <typename Fn>
   requires std::is_function_v<Fn>
 class Hook {
