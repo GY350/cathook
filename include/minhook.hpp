@@ -3,8 +3,15 @@
 
 #include <expected>
 #include <type_traits>
+#include <vector>
 
 namespace mh {
+
+namespace detail {
+template <typename Fn>
+  requires std::is_function_v<Fn>
+inline std::add_pointer_t<Fn> original = nullptr;
+}  // namespace detail
 
 class Context {
  public:
@@ -32,7 +39,10 @@ class Hook {
   Hook(void* target, fn_ptr detour)
       : target_(target),
         status_(MH_CreateHook(target, reinterpret_cast<void*>(detour),
-                              &original_)) {}
+                              &original_)) {
+    if (status_ == MH_OK)
+      detail::original<Fn> = reinterpret_cast<fn_ptr>(original_);
+  }
 
   Hook(fn_ptr target, fn_ptr detour)
       : Hook(reinterpret_cast<void*>(target), detour) {}
@@ -61,19 +71,53 @@ class Hook {
  private:
   Hook(MH_STATUS status) : target_(nullptr), status_(status) {}
 
-  template <typename F>
-  friend Hook<F> hook_api(const wchar_t*, const char*,
-                          typename Hook<F>::fn_ptr);
+  friend class HookSet;
+
+  template <typename FnPtr>
+    requires std::is_function_v<std::remove_pointer_t<FnPtr>>
+  friend Hook<std::remove_pointer_t<FnPtr>> hook_api(const wchar_t*,
+                                                     const char*, FnPtr);
 
   void* target_ = nullptr;
   void* original_ = nullptr;
   MH_STATUS status_ = MH_UNKNOWN;
 };
 
+class HookSet {
+ public:
+  template <typename Fn>
+    requires std::is_function_v<Fn>
+  void add(const Hook<Fn>& hook) {
+    targets_.push_back(hook.target_);
+  }
+
+  [[nodiscard]] std::expected<void, MH_STATUS> enable() {
+    for (auto* t : targets_)
+      if (auto s = MH_QueueEnableHook(t); s != MH_OK) return std::unexpected(s);
+    if (auto s = MH_ApplyQueued(); s != MH_OK) return std::unexpected(s);
+    return {};
+  }
+
+  [[nodiscard]] std::expected<void, MH_STATUS> disable() {
+    for (auto* t : targets_)
+      if (auto s = MH_QueueDisableHook(t); s != MH_OK)
+        return std::unexpected(s);
+    if (auto s = MH_ApplyQueued(); s != MH_OK) return std::unexpected(s);
+    return {};
+  }
+
+ private:
+  std::vector<void*> targets_;
+};
+
 template <typename Fn>
   requires std::is_function_v<Fn>
-Hook<Fn> hook_api(const wchar_t* module, const char* proc,
-                  typename Hook<Fn>::fn_ptr detour) {
+inline std::add_pointer_t<Fn>& original = detail::original<Fn>;
+
+template <typename FnPtr>
+  requires std::is_function_v<std::remove_pointer_t<FnPtr>>
+Hook<std::remove_pointer_t<FnPtr>> hook_api(const wchar_t* module,
+                                            const char* proc, FnPtr detour) {
   if (auto hmod = GetModuleHandleW(module); !hmod)
     return {MH_ERROR_MODULE_NOT_FOUND};
   else if (auto addr = GetProcAddress(hmod, proc); !addr)

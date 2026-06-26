@@ -26,7 +26,7 @@
 
 cmake_minimum_required(VERSION 3.10...3.28)
 
-project(minhook LANGUAGES C)
+project(minhook LANGUAGES C CXX)
 
 include(CMakePackageConfigHelpers)
 
@@ -139,3 +139,11 @@ install(
 install(
   DIRECTORY include DESTINATION .
 )
+
+####################
+#     EXAMPLES     #
+####################
+
+add_executable(minhook_example examples/example.cpp)
+target_link_libraries(minhook_example PRIVATE minhook)
+set_target_properties(minhook_example PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
